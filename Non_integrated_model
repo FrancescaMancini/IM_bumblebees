@@ -1,0 +1,58 @@
+model {
+
+    # Priors 
+    # state model priors
+   a[1] ~ dnorm(0, 0.001)
+   for(t in 2:nyear){
+    a[t] ~ dnorm(a[t-1], tau.a) # year effect 
+   }
+   
+   tau.a <- 1/(sd.a * sd.a)
+   sd.a ~ dt(0, 1, 1)T(0,) 
+    
+    # RANDOM EFFECT for SITE
+    for (i in 1:nsite) {
+      eta[i] ~ dnorm(0, tau2)       
+    } 
+    
+    tau2 <- 1/(sigma2 * sigma2)
+    sigma2 ~ dt(0, 1, 1)T(0,)
+
+    for (t in 1:nyear) {
+    dtype1.p[t] ~ dnorm(mu.lp, tau.lp)            
+    }
+    
+    mu.lp ~ dnorm(0, 0.01)
+
+    tau.lp <- 1 / (sd.lp * sd.lp)                 
+    sd.lp ~ dt(0, 1, 1)T(0,)  
+
+    dtype2.p ~ dunif(-10, 10)
+    dtype3.p ~ dunif(-10, 10)
+    beta1 ~ dunif(1, 366)  # Julian day priors
+    beta2 ~ dunif(0, 90)
+    beta3 ~ dnorm(0, 0.0001)
+    
+    for (d in 1:366) {
+      f_x[d] <- (1/((2 * 3.141593)^0.5 * beta2) * exp(-((d - beta1)^2/(2 * beta2^2))))
+    }
+    for (k in 1:nvisit1) {
+      y1[k] ~ dbern(Py1[k])
+      Py1[k] <- z[Site1[k], Year1[k]] * p1[k]
+      logit(p1[k]) <- dtype1.p[Year1[k]] + dtype2.p * DATATYPE2[k, 1] +
+        dtype3.p * DATATYPE3[k, 1] + beta3 * f_x[JulDate1[k]]
+    }
+    
+    # State model
+    for (i in 1:nsite) {
+      for(t in 1:nyear) {
+      z[i,t] ~ dbern(muZ[i,t])
+      logit(muZ[i,t]) <- a[t] + eta[i]
+      }
+    }
+    # Derived parameters
+    for(t in 1:nyear) {    
+    psi.fs[t] <- sum(z[1:nsite, t])/nsite
+    }
+  }
+  
